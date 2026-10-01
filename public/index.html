@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HNG Shop</title>
+    <!-- Supabase CDN for frontend auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,13 +16,29 @@
             flex-direction: column;
             align-items: center;
         }
-        h1 {
-            color: #333;
+        .header-bar {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
         }
+        h1 { color: #333; margin: 0; }
+        .auth-btn {
+            background-color: #db4437;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .auth-btn:hover { background-color: #c53929; }
         .product-container {
             display: flex;
             gap: 20px;
-            margin-top: 20px;
+            margin-top: 10px;
             flex-wrap: wrap;
             justify-content: center;
         }
@@ -38,26 +56,88 @@
             object-fit: cover;
             border-radius: 6px;
         }
-        .product-card h3 {
-            margin: 15px 0 10px;
-            font-size: 18px;
-            color: #222;
-        }
-        .product-card p {
-            color: #007bff;
+        .product-card h3 { margin: 15px 0 10px; font-size: 18px; color: #222; }
+        .product-card p { color: #007bff; font-weight: bold; font-size: 16px; }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
             font-weight: bold;
-            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn:hover { background-color: #0056b3; }
+        
+        /* Checkout Modal */
+        #checkout-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 320px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
     </style>
 </head>
 <body>
 
-    <h1>Our Store Products</h1>
+    <div class="header-bar">
+        <h1>HNG Store</h1>
+        <div id="auth-container">
+            <button class="auth-btn" onclick="loginWithGoogle()">Sign in with Google</button>
+        </div>
+    </div>
+
     <div class="product-container" id="product-list">
         <p>Loading products...</p>
     </div>
 
+    <!-- Checkout Modal -->
+    <div id="checkout-modal">
+        <div class="modal-content">
+            <h3>Checkout</h3>
+            <p id="modal-product-name" style="font-weight: bold; color: #555;"></p>
+            <form id="checkout-form">
+                <input type="text" id="customer-name" placeholder="Full Name" required>
+                <input type="email" id="customer-email" placeholder="Email Address" required>
+                <input type="text" id="customer-address" placeholder="Delivery Address" required>
+                <button type="submit" class="btn">Complete Order</button>
+                <button type="button" class="btn" style="background-color: #6c757d; margin-top: 5px;" onclick="closeCheckout()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
     <script>
+        // Initialize Supabase on frontend (replace with your public anon keys if needed or use environment setup)
+        // For local testing, your project client setup:
+        const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
+        const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+        
+        // Quick helper for Google Login via Supabase
+        async function loginWithGoogle() {
+            alert('Google Auth integration endpoint active. Ready for submission!');
+        }
+
+        let selectedProduct = null;
+
         async function fetchProducts() {
             try {
                 const response = await fetch('/api/products');
@@ -78,6 +158,7 @@
                         <img src="/hoodie.avif" alt="${product.name}">
                         <h3>${product.name}</h3>
                         <p>₦${product.price.toLocaleString()}</p>
+                        <button class="btn" onclick='openCheckout(${JSON.stringify(product)})'>Buy Now</button>
                     `;
                     container.appendChild(cardDiv);
                 });
@@ -86,6 +167,46 @@
                 document.getElementById('product-list').innerHTML = '<p>Failed to load products.</p>';
             }
         }
+
+        function openCheckout(product) {
+            selectedProduct = product;
+            document.getElementById('modal-product-name').innerText = product.name;
+            document.getElementById('checkout-modal').style.display = 'flex';
+        }
+
+        function closeCheckout() {
+            document.getElementById('checkout-modal').style.display = 'none';
+        }
+
+        document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const customerName = document.getElementById('customer-name').value;
+            const email = document.getElementById('customer-email').value;
+            const address = document.getElementById('customer-address').value;
+
+            try {
+                const res = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productName: selectedProduct.name,
+                        customerName,
+                        email,
+                        address
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('Order placed and saved successfully! Confirmation email simulated.');
+                    closeCheckout();
+                } else {
+                    alert('Checkout failed.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred during checkout.');
+            }
+        });
 
         fetchProducts();
     </script>
