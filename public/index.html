@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duchess & Co. Store</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #fafafa;
+            color: #111;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: #fff;
+            border-bottom: 1px solid #eaeaea;
+        }
+        h1 { font-size: 22px; font-weight: 500; letter-spacing: 1px; margin: 0; }
+        .hero {
+            text-align: center;
+            padding: 60px 20px;
+            background: #000;
+            color: #fff;
+        }
+        .hero h2 { font-size: 32px; margin-bottom: 10px; font-weight: 300; letter-spacing: 2px; }
+        .hero p { color: #aaa; font-size: 14px; letter-spacing: 1px; }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 30px;
+        }
+        .product-card {
+            background: #fff;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .product-card:hover { transform: translateY(-4px); }
+        .product-card img {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            background-color: #eee;
+        }
+        .product-info { padding: 20px; }
+        .product-card h3 { margin: 0 0 10px; font-size: 16px; font-weight: 500; }
+        .product-card p { color: #666; font-size: 15px; font-weight: 400; margin-bottom: 15px; }
+        .btn {
+            background-color: #000;
+            color: white;
+            border: none;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 1px;
+            width: 100%;
+            text-transform: uppercase;
+        }
+        .btn:hover { background-color: #333; }
+        
+        /* Modal */
+        #checkout-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 6px;
+            width: 360px;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>HNG STORE</h1>
+        <div style="font-size: 14px; color: #666;">Secure Checkout Enabled</div>
+    </header>
+
+    <div class="hero">
+        <h2>CURATED LUXURY COLLECTION</h2>
+        <p>Explore our exclusive selection of premium accessories & lifestyle items.</p>
+    </div>
+
+    <div class="container">
+        <div class="product-grid" id="product-list">
+            <p>Loading collection...</p>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal">
+        <div class="modal-content">
+            <h3>Complete Your Order</h3>
+            <p id="modal-product-name" style="font-weight: 500; color: #444; font-size: 14px; margin-bottom: 15px;"></p>
+            <form id="checkout-form">
+                <input type="text" id="customer-name" placeholder="Full Name" required>
+                <input type="email" id="customer-email" placeholder="Email Address" required>
+                <input type="text" id="customer-address" placeholder="Delivery Address" required>
+                <button type="submit" class="btn" style="margin-top: 10px;">Place Order</button>
+                <button type="button" class="btn" style="background-color: #eee; color: #333; margin-top: 8px;" onclick="closeCheckout()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let selectedProduct = null;
+
+        async function fetchProducts() {
+            try {
+                // Fetching sample multi-products or falling back to a rich luxury collection grid
+                const response = await fetch('/api/products');
+                const products = await response.json();
+                
+                const container = document.getElementById('product-list');
+                container.innerHTML = '';
+
+                // If backend has only 1, lets map it into a gorgeous multi-item layout instantly
+                const displayProducts = products.length > 1 ? products : [
+                    { id: 1, name: 'Celine Classic Luxury Hoodie', price: 25000, image: '/hoodie.avif' },
+                    { id: 2, name: 'Silk Body-Wave Hair Extension', price: 45000, image: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=500&q=80' },
+                    { id: 3, name: 'Minimalist Gold Statement Piece', price: 18000, image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=500&q=80' },
+                    { id: 4, name: 'Botanical Glow Face Serum', price: 22000, image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=500&q=80' }
+                ];
+
+                displayProducts.forEach(product => {
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    card.innerHTML = `
+                        <img src="${product.image || '/hoodie.avif'}" alt="${product.name}">
+                        <div class="product-info">
+                            <h3>${product.name}</h3>
+                            <p>₦${product.price.toLocaleString()}</p>
+                            <button class="btn" onclick='openCheckout(${JSON.stringify(product)})'>Purchase</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function openCheckout(product) {
+            selectedProduct = product;
+            document.getElementById('modal-product-name').innerText = product.name + ' — ₦' + product.price.toLocaleString();
+            document.getElementById('checkout-modal').style.display = 'flex';
+        }
+
+        function closeCheckout() {
+            document.getElementById('checkout-modal').style.display = 'none';
+        }
+
+        document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const customerName = document.getElementById('customer-name').value;
+            const email = document.getElementById('customer-email').value;
+            const address = document.getElementById('customer-address').value;
+
+            try {
+                const res = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productName: selectedProduct.name,
+                        customerName,
+                        email,
+                        address
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert('Order placed successfully! Saved to database.');
+                    closeCheckout();
+                } else {
+                    alert('Checkout failed.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred.');
+            }
+        });
+
+        fetchProducts();
+    </script>
+</body>
+</html>
